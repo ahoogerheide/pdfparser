@@ -32,17 +32,61 @@ readonly class LiteralStringValue implements DictionaryValue {
 
     /** @throws ParseFailureException */
     public function getBinaryString(): string {
-        $value = preg_replace_callback(
-            '/\\\\([0-7]{1,3})/',
-            fn(array $matches) => chr((int) octdec($matches[1])),
-            $this->value,
-        ) ?? throw new ParseFailureException();
+        $value = $this->value;
+        $length = strlen($value);
+        $decoded = '';
+        for ($index = 0; $index < $length; $index++) {
+            if ($value[$index] !== '\\') {
+                $decoded .= $value[$index];
 
-        return str_replace(
-            ['\\\\', '\n', '\r', '\t', '\b', '\f', '\(', '\)'],
-            ['\\', "\n", "\r", "\t", "\x08", "\f", '(', ')'],
-            $value,
-        );
+                continue;
+            }
+
+            if ($index + 1 >= $length) {
+                $decoded .= '\\';
+
+                break;
+            }
+
+            $next = $value[++$index];
+            if ($next === "\r") {
+                if (($value[$index + 1] ?? '') === "\n") {
+                    $index++;
+                }
+
+                continue;
+            }
+            if ($next === "\n") {
+                continue;
+            }
+
+            if ($next >= '0' && $next <= '7') {
+                $octal = $next;
+                for ($digits = 1; $digits < 3; $digits++) {
+                    $candidate = $value[$index + 1] ?? '';
+                    if ($candidate < '0' || $candidate > '7') {
+                        break;
+                    }
+                    $octal .= $candidate;
+                    $index++;
+                }
+                $decoded .= chr((int) octdec($octal));
+
+                continue;
+            }
+
+            $decoded .= match ($next) {
+                'n' => "\n",
+                'r' => "\r",
+                't' => "\t",
+                'b' => "\x08",
+                'f' => "\f",
+                '(', ')', '\\' => $next,
+                default => '\\' . $next,
+            };
+        }
+
+        return $decoded;
     }
 
     /** @return list<int> */

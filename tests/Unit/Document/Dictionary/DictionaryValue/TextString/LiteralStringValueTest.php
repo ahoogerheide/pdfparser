@@ -48,6 +48,35 @@ class LiteralStringValueTest extends TestCase {
         );
     }
 
+    /**
+     * The ISSF constitution breaks literal strings with a reverse solidus and a carriage return,
+     * for example "un\ der" on the page is stored as un, backslash, CR, der.
+     *
+     * @see 7.3.4.2
+     */
+    public function testGetTextIgnoresEndOfLineLineContinuation(): void {
+        static::assertSame(
+            'under',
+            (new LiteralStringValue("un\\\rder"))->getText(),
+        );
+        static::assertSame(
+            'under',
+            (new LiteralStringValue("un\\\nder"))->getText(),
+        );
+        static::assertSame(
+            'under',
+            (new LiteralStringValue("un\\\r\nder"))->getText(),
+        );
+        static::assertSame(
+            '1947 under the name',
+            (new LiteralStringValue("1947 un\\\rder the name"))->getText(),
+        );
+        static::assertSame(
+            "\\\n",
+            (new LiteralStringValue("\\\\\n"))->getText(),
+        );
+    }
+
     /** @see 7.3.4 */
     public function testGetTextWithOctalCharacters(): void {
         static::assertSame(
